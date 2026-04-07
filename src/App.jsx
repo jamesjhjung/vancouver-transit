@@ -662,25 +662,30 @@ function useIsMobile() {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [screen,       setScreen]       = useState("setup");
   const [prefs,        setPrefs]        = useLocalStorage("vt_prefs",    DEFAULT_PREFS);
-  const [origin,       setOrigin]       = useState("");
-  const [dest,         setDest]         = useState("");
-  const [loading,      setLoading]      = useState(false);
-  const [loadingMsg,   setLoadingMsg]   = useState("");
-  const [error,        setError]        = useState(null);
-  const [routes,       setRoutes]       = useState([]);
-  const [selected,     setSelected]     = useState(null);
-  const [originCoords, setOriginCoords] = useState(null);
   const [history,      setHistory]      = useLocalStorage("vt_history",   []);
   const [bayesLog,     setBayesLog]     = useLocalStorage("vt_bayeslog",  []);
   const [tripCount,    setTripCount]    = useLocalStorage("vt_tripcount", 0);
+  const [activeTrip,   setActiveTrip]   = useLocalStorage("vt_activetrip", null);
+
+  // Restore screen: results if active trip exists, main if returning user, setup if first time
+  const [screen,       setScreen]       = useState(() =>
+    activeTrip ? "results" : tripCount > 0 ? "main" : "setup"
+  );
+  const [origin,       setOrigin]       = useState(() => activeTrip?.origin ?? "");
+  const [dest,         setDest]         = useState(() => activeTrip?.dest ?? "");
+  const [loading,      setLoading]      = useState(false);
+  const [loadingMsg,   setLoadingMsg]   = useState("");
+  const [error,        setError]        = useState(null);
+  const [routes,       setRoutes]       = useState(() => activeTrip?.routes ?? []);
+  const [selected,     setSelected]     = useState(() => activeTrip?.selected ?? null);
+  const [originCoords, setOriginCoords] = useState(() => activeTrip?.originCoords ?? null);
   const [notif,        setNotif]        = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [geoError,     setGeoError]     = useState(null);
   const [sheetOpen,    setSheetOpen]    = useState(false);
   // "selecting" = choosing a route | "navigating" = confirmed, watching map
-  const [tripState,    setTripState]    = useState("selecting");
+  const [tripState,    setTripState]    = useState(() => activeTrip?.tripState ?? "selecting");
   const isMobile  = useIsMobile();
   const sheetRef  = useRef(null);
   const dragRef   = useRef({ active: false, startY: 0, startH: 0 });
@@ -772,7 +777,9 @@ export default function App() {
     notify("Preferences updated 🧠");
     setTripState("navigating");
     setSheetOpen(false);
-  }, [selected, prefs, routes, origin, dest, tripCount]);
+    // Persist active trip so it survives refresh
+    setActiveTrip({ origin, dest, routes, selected, originCoords, tripState: "navigating" });
+  }, [selected, prefs, routes, origin, dest, tripCount, originCoords]);
 
   // ── NEW TRIP — resets back to main search screen ─────────────────────────────
   const startNewTrip = useCallback(() => {
@@ -782,6 +789,7 @@ export default function App() {
     setRoutes([]);
     setSelected(null);
     setTripState("selecting");
+    setActiveTrip(null);
   }, []);
 
   const SUGGESTIONS = [
