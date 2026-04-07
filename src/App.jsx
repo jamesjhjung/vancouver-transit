@@ -623,7 +623,7 @@ function Spinner() {
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&family=DM+Mono&display=swap');
   *, *::before, *::after { box-sizing: border-box; }
-  html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+  html, body, #root { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; -webkit-overflow-scrolling: touch; }
   input::placeholder { color: #334155; }
   input { caret-color: #3b82f6; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -685,6 +685,7 @@ export default function App() {
   const sheetRef  = useRef(null);
   const dragRef   = useRef({ active: false, startY: 0, startH: 0 });
 
+  const geoFilledRef = useRef(false);
   useEffect(() => {
     if (!navigator.geolocation) return;
     const id = navigator.geolocation.watchPosition(
@@ -695,6 +696,19 @@ export default function App() {
           accuracy: pos.coords.accuracy,
         });
         setGeoError(null);
+        // Auto-fill origin with reverse-geocoded address on first fix
+        if (!geoFilledRef.current) {
+          geoFilledRef.current = true;
+          const latlng = `${pos.coords.latitude},${pos.coords.longitude}`;
+          fetch(`/maps-api/maps/api/geocode/json?latlng=${latlng}&key=${GOOGLE_KEY}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.results?.[0]) {
+                setOrigin(prev => prev ? prev : data.results[0].formatted_address);
+              }
+            })
+            .catch(() => {});
+        }
       },
       err => {
         console.warn("Geolocation:", err.message);
@@ -779,10 +793,12 @@ export default function App() {
 
   // ── SETUP ────────────────────────────────────────────────────────────────────
   if (screen === "setup") return (
-    <div style={{ minHeight:"100vh", background:"#050d1a", display:"flex", alignItems:"center",
-      justifyContent:"center", padding:"20px", fontFamily:"'DM Sans',sans-serif",
-      backgroundImage:"radial-gradient(ellipse at 20% 50%,#0d2040 0%,transparent 60%)" }}>
-      <div style={{ width:"100%", maxWidth:"420px" }}>
+    <div style={{ height:"100vh", background:"#050d1a", display:"flex",
+      alignItems:"flex-start", justifyContent:"center",
+      padding:"20px", fontFamily:"'DM Sans',sans-serif",
+      backgroundImage:"radial-gradient(ellipse at 20% 50%,#0d2040 0%,transparent 60%)",
+      overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+      <div style={{ width:"100%", maxWidth:"420px", margin:"auto 0" }}>
         <div style={{ textAlign:"center", marginBottom:"28px" }}>
           <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center",
             width:"60px", height:"60px", borderRadius:"16px",
@@ -828,9 +844,10 @@ export default function App() {
 
   // ── HISTORY ──────────────────────────────────────────────────────────────────
   if (screen === "history") return (
-    <div style={{ minHeight:"100vh", background:"#050d1a", padding:"20px",
+    <div style={{ height:"100vh", background:"#050d1a", padding:"20px",
       fontFamily:"'DM Sans',sans-serif",
-      backgroundImage:"radial-gradient(ellipse at 20% 50%,#0d2040 0%,transparent 60%)" }}>
+      backgroundImage:"radial-gradient(ellipse at 20% 50%,#0d2040 0%,transparent 60%)",
+      overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
       <div style={{ maxWidth:"480px", margin:"0 auto" }}>
         <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"22px" }}>
           <button onClick={()=>setScreen("main")} style={{ background:"#0d1b2a",
@@ -1193,16 +1210,20 @@ export default function App() {
 
   // ── MAIN ─────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight:"100vh", background:"#050d1a", fontFamily:"'DM Sans',sans-serif",
-      backgroundImage:"radial-gradient(ellipse at 20% 50%,#0d2040 0%,transparent 60%)" }}>
+    <div style={{ height:"100vh", background:"#050d1a", fontFamily:"'DM Sans',sans-serif",
+      backgroundImage:"radial-gradient(ellipse at 20% 50%,#0d2040 0%,transparent 60%)",
+      overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
       {notif && <Notif {...notif} />}
-      <div style={{ maxWidth:"480px", margin:"0 auto", padding:"22px 18px" }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"26px" }}>
+      <div style={{ maxWidth:"480px", margin:"0 auto",
+        padding: isMobile ? "14px 14px" : "22px 18px",
+        paddingBottom:"calc(env(safe-area-inset-bottom, 0px) + 30px)" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          marginBottom: isMobile ? "16px" : "26px" }}>
           <div>
-            <h1 style={{ fontSize:"22px", fontWeight:"800", color:"#f1f5f9", margin:0, letterSpacing:"-0.02em" }}>
+            <h1 style={{ fontSize: isMobile ? "19px" : "22px", fontWeight:"800", color:"#f1f5f9", margin:0, letterSpacing:"-0.02em" }}>
               🚇 TransitAI
             </h1>
-            <p style={{ fontSize:"12px", color:"#475569", margin:"3px 0 0" }}>
+            <p style={{ fontSize:"11px", color:"#475569", margin:"3px 0 0" }}>
               Metro Vancouver · {tripCount} trips learned
             </p>
           </div>
@@ -1212,8 +1233,11 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{ background:"#0d1b2a", borderRadius:"20px", border:"1px solid #1e3348",
-          padding:"18px", marginBottom:"18px", boxShadow:"0 8px 40px #00000050" }}>
+        <div style={{ background:"#0d1b2a", borderRadius: isMobile ? "16px" : "20px",
+          border:"1px solid #1e3348",
+          padding: isMobile ? "14px" : "18px",
+          marginBottom: isMobile ? "12px" : "18px",
+          boxShadow:"0 8px 40px #00000050" }}>
           <LocInput label="FROM" dot="#22c55e" value={origin} onChange={setOrigin} placeholder="Enter origin address…" />
           <div style={{ display:"flex", alignItems:"center", margin:"8px 0", gap:"10px" }}>
             <div style={{ flex:1, height:"1px", background:"#1e3348" }} />
@@ -1230,7 +1254,7 @@ export default function App() {
             </div>
           )}
           <button onClick={search} disabled={!origin||!dest||loading} style={{
-            marginTop:"14px", width:"100%", padding:"13px",
+            marginTop: isMobile ? "10px" : "14px", width:"100%", padding: isMobile ? "11px" : "13px",
             background:(!origin||!dest)?"#1e293b":"linear-gradient(135deg,#1d4ed8,#0ea5e9)",
             border:"none", borderRadius:"12px",
             color:(!origin||!dest)?"#475569":"#fff",
@@ -1242,23 +1266,24 @@ export default function App() {
           </button>
         </div>
 
-        <div style={{ marginBottom:"22px" }}>
-          <div style={{ fontSize:"11px", color:"#475569", marginBottom:"9px", fontFamily:"monospace" }}>QUICK ROUTES</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:"7px" }}>
+        <div style={{ marginBottom: isMobile ? "14px" : "22px" }}>
+          <div style={{ fontSize:"11px", color:"#475569", marginBottom:"7px", fontFamily:"monospace" }}>QUICK ROUTES</div>
+          <div style={{ display:"flex", flexDirection:"column", gap: isMobile ? "5px" : "7px" }}>
             {SUGGESTIONS.map(([f,t],i)=>(
               <button key={i} onClick={()=>{setOrigin(f);setDest(t)}} style={{
                 background:"#0d1b2a", border:"1px solid #1e3348", borderRadius:"11px",
-                padding:"9px 13px", cursor:"pointer", textAlign:"left",
+                padding: isMobile ? "7px 10px" : "9px 13px", cursor:"pointer", textAlign:"left",
                 display:"flex", alignItems:"center", gap:"9px"
               }}>
                 <span style={{ fontSize:"15px" }}>🗺</span>
-                <div style={{ fontSize:"12px", fontWeight:"600", color:"#cbd5e1" }}>{f} → {t}</div>
+                <div style={{ fontSize: isMobile ? "11px" : "12px", fontWeight:"600", color:"#cbd5e1" }}>{f} → {t}</div>
               </button>
             ))}
           </div>
         </div>
 
-        <div style={{ background:"#0d1b2a", borderRadius:"16px", border:"1px solid #1e3348", padding:"14px" }}>
+        <div style={{ background:"#0d1b2a", borderRadius:"16px", border:"1px solid #1e3348",
+          padding: isMobile ? "10px" : "14px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"11px" }}>
             <span>🧠</span>
             <span style={{ fontSize:"13px", fontWeight:"700", color:"#a78bfa" }}>Personalization Profile</span>
